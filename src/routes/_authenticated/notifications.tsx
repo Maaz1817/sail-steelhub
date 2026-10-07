@@ -75,7 +75,7 @@ function NotificationsPage() {
 
   return (
     <AppShell title="Notifications">
-      <section className="card-elevated flex items-center gap-3 p-4">
+      <section className="notification-summary card-elevated flex items-center gap-3 p-4">
         <div className="rounded-full bg-primary/10 p-3">
           <Bell aria-hidden className="size-6 text-primary" />
         </div>
@@ -121,13 +121,19 @@ function NotificationsPage() {
           return (
             <li
               key={notification.id}
-              className={`card-elevated overflow-hidden ${notification.is_read ? "" : "border-2 border-primary/45"}`}
+              className={`notification-card ${
+                notification.kind === "birthday"
+                  ? "celebration-notification notification-birthday"
+                  : notification.kind === "anniversary"
+                    ? "celebration-notification notification-anniversary"
+                    : "notification-announcement"
+              } card-elevated overflow-hidden ${notification.is_read ? "" : "notification-unread"}`}
             >
               {notification.image_url ? (
                 <img
                   src={notification.image_url}
                   alt="Announcement"
-                  className="aspect-[16/9] w-full object-cover"
+                  className="max-h-[70vh] w-full bg-muted object-contain"
                   loading="lazy"
                 />
               ) : null}
@@ -173,7 +179,7 @@ function NotificationsPage() {
                     {notification.wishes.length ? (
                       <ul className="mt-3 space-y-2">
                         {notification.wishes.map((wish) => (
-                          <li key={wish.id} className="rounded-xl bg-muted px-3 py-2">
+                          <li key={wish.id} className="wish-entry rounded-xl px-3 py-2">
                             <p className="text-sm font-bold">{wish.sender_name}</p>
                             <p className="mt-0.5 text-sm text-muted-foreground">{wish.message}</p>
                           </li>
@@ -202,7 +208,7 @@ function NotificationsPage() {
                         type="submit"
                         disabled={sendWish.isPending || !text.trim()}
                         aria-label="Send wishes"
-                        className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-50"
+                        className="wish-send-button flex size-11 shrink-0 items-center justify-center rounded-xl text-primary-foreground disabled:opacity-50"
                       >
                         <Send aria-hidden className="size-4" />
                       </button>

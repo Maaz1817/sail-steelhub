@@ -197,3 +197,58 @@ export const getMyProfile = createServerFn({ method: "GET" })
 
     return { profile: data, roles: (roles ?? []).map((r) => r.role) };
   });
+
+/**
+ * Employees may keep their profile contact details and designation current.
+ * Official HR-managed information such as employee number, department and
+ * joining dates is never accepted by this endpoint.
+ */
+export const updateMyContactDetails = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { phone: string; workEmail: string; designation: string }) =>
+    z
+      .object({
+        designation: z.string().trim().max(120),
+        phone: z
+          .string()
+          .trim()
+          .max(32)
+          .regex(/^[0-9+()\-\s]*$/, "Enter a valid phone number."),
+        workEmail: z
+          .string()
+          .trim()
+          .max(254)
+          .refine(
+            (value) => value === "" || z.string().email().safeParse(value).success,
+            "Enter a valid email address.",
+          ),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: employee, error } = await supabaseAdmin
+      .from("employees")
+      .update({
+        designation: data.designation || null,
+        phone: data.phone || null,
+        work_email: data.workEmail || null,
+      })
+      .eq("auth_user_id", context.userId)
+      .select("id, employee_number")
+      .maybeSingle();
+
+    if (error) throw new Error("Could not update your contact details. Please try again.");
+    if (!employee) throw new Error("Your employee profile could not be found.");
+
+    await supabaseAdmin.from("audit_logs").insert({
+      actor_user_id: context.userId,
+      employee_number: employee.employee_number,
+      action: "employee.contact_details.update",
+      entity: "employees",
+      entity_id: employee.id,
+      details: { updated_fields: ["designation", "phone", "work_email"] },
+    });
+
+    return { ok: true as const };
+  });

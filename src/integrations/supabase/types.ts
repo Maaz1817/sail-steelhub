@@ -193,10 +193,15 @@ export type Database = {
       events: {
         Row: {
           category: string | null
+          activity_type: string
           cover_image_url: string | null
           created_at: string
           description: string | null
           event_date: string
+          home_cover_image_url: string | null
+          home_cover_position_x: number
+          home_cover_position_y: number
+          home_cover_scale: number
           id: string
           is_published: boolean
           location: string | null
@@ -205,10 +210,15 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          activity_type?: string
           cover_image_url?: string | null
           created_at?: string
           description?: string | null
           event_date?: string
+          home_cover_image_url?: string | null
+          home_cover_position_x?: number
+          home_cover_position_y?: number
+          home_cover_scale?: number
           id?: string
           is_published?: boolean
           location?: string | null
@@ -217,10 +227,15 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          activity_type?: string
           cover_image_url?: string | null
           created_at?: string
           description?: string | null
           event_date?: string
+          home_cover_image_url?: string | null
+          home_cover_position_x?: number
+          home_cover_position_y?: number
+          home_cover_scale?: number
           id?: string
           is_published?: boolean
           location?: string | null

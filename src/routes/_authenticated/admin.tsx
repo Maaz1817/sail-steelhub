@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -31,6 +31,8 @@ import {
   adminCreateEvent,
   adminCreateEventPhotoUpload,
   adminAddEventPhoto,
+  adminGetEventHomeCover,
+  adminSetEventHomeCover,
   adminGetCelebrations,
   adminRunCelebrations,
   adminListForms,
@@ -163,21 +165,110 @@ function OverviewTab() {
   const cards = [
     { label: "Employees on roster", value: s.employees },
     { label: "Accounts activated", value: s.activated },
+    { label: "Awaiting activation", value: s.awaitingActivation },
+    { label: "Inactive profiles", value: s.inactive },
     { label: "Learning modules", value: s.modules },
     { label: "Quiz attempts", value: s.attempts },
-    { label: "Events", value: s.events },
+    { label: "Activities", value: s.events },
     { label: "Circulars", value: s.circulars },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {cards.map((c) => (
-        <div key={c.label} className="card-elevated p-4">
-          <p className="text-3xl font-bold text-primary">{c.value}</p>
-          <p className="mt-1 text-sm font-semibold text-muted-foreground">{c.label}</p>
+    <div>
+      <div className="grid grid-cols-2 gap-3">
+        {cards.map((c) => (
+          <div key={c.label} className="card-elevated p-4">
+            <p className="text-3xl font-bold text-primary">{c.value}</p>
+            <p className="mt-1 text-sm font-semibold text-muted-foreground">{c.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <section className="mt-6" aria-labelledby="employee-activation-title">
+        <h2 id="employee-activation-title" className="text-xl font-bold">
+          Employee activation overview
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Employee ID and name are shown for each account status.
+        </p>
+        <div className="mt-3 space-y-3">
+          <EmployeeStatusList
+            title="Activated employees"
+            status="Activated"
+            employees={data!.employeeStatus.activated}
+            tone="border-success/45 bg-success/10 text-success"
+          />
+          <EmployeeStatusList
+            title="Awaiting activation"
+            status="Pending"
+            employees={data!.employeeStatus.awaitingActivation}
+            tone="border-accent/45 bg-accent/10 text-accent"
+          />
+          <EmployeeStatusList
+            title="Inactive employees"
+            status="Inactive"
+            employees={data!.employeeStatus.inactive}
+            tone="border-border bg-muted text-muted-foreground"
+          />
         </div>
-      ))}
+      </section>
     </div>
+  );
+}
+
+type OverviewEmployee = {
+  id: string;
+  employee_number: string;
+  full_name: string;
+  designation: string | null;
+  department: string | null;
+};
+
+function EmployeeStatusList({
+  title,
+  status,
+  employees,
+  tone,
+}: {
+  title: string;
+  status: string;
+  employees: OverviewEmployee[];
+  tone: string;
+}) {
+  return (
+    <section className="card-elevated overflow-hidden" aria-label={title}>
+      <div className="flex items-center justify-between gap-3 p-4">
+        <div>
+          <h3 className="text-lg font-bold">{title}</h3>
+          <p className="text-sm text-muted-foreground">
+            {employees.length} employee{employees.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        <span className={`rounded-full border px-3 py-1 text-xs font-extrabold ${tone}`}>{status}</span>
+      </div>
+      {employees.length ? (
+        <ul className="max-h-72 divide-y divide-border overflow-y-auto border-t border-border">
+          {employees.map((employee) => (
+            <li key={employee.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="font-bold leading-tight">{employee.full_name}</p>
+                <p className="mt-1 text-sm font-semibold text-muted-foreground">
+                  ID: {employee.employee_number}
+                </p>
+                {employee.designation || employee.department ? (
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {[employee.designation, employee.department].filter(Boolean).join(" · ")}
+                  </p>
+                ) : null}
+              </div>
+              <span className={`shrink-0 rounded-full border px-2 py-1 text-[11px] font-bold ${tone}`}>{status}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="border-t border-border px-4 py-3 text-sm text-muted-foreground">No employees in this group.</p>
+      )}
+    </section>
   );
 }
 
@@ -224,7 +315,10 @@ function EmployeesTab() {
   const flagMutation = useMutation({
     mutationFn: (v: { id: string; is_active?: boolean; is_admin?: boolean }) =>
       setFlags({ data: v }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-employees"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-employees"] });
+      qc.invalidateQueries({ queryKey: ["admin-overview"] });
+    },
     onError: (e: Error) => setMessage(e.message),
   });
 
@@ -385,15 +479,17 @@ const CIRCULAR_FORM = {
 const EVENT_FORM = {
   title: "",
   description: "",
+  activity_type: "ld" as "ld" | "other",
   category: "General",
   location: "",
   event_date: new Date().toISOString().slice(0, 10),
   is_published: true,
 };
 
-const MAX_UPLOAD_BYTES = 6 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+const MAX_EVENT_PHOTOS = 5;
 const EVENT_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_VIDEO_UPLOAD_BYTES = 50 * 1024 * 1024;
+const MAX_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
 const LEARNING_VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
 
 function ContentTab() {
@@ -405,6 +501,8 @@ function ContentTab() {
   const createEventFn = useServerFn(adminCreateEvent);
   const photoUploadFn = useServerFn(adminCreateEventPhotoUpload);
   const addPhotoFn = useServerFn(adminAddEventPhoto);
+  const getHomeCoverFn = useServerFn(adminGetEventHomeCover);
+  const setHomeCoverFn = useServerFn(adminSetEventHomeCover);
 
   const [showCircularForm, setShowCircularForm] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
@@ -412,7 +510,29 @@ function ContentTab() {
   const [circularFile, setCircularFile] = useState<File | null>(null);
   const [eventForm, setEventForm] = useState({ ...EVENT_FORM });
   const [eventPhotos, setEventPhotos] = useState<File[]>([]);
+  const [eventCoverIndex, setEventCoverIndex] = useState(0);
+  const [eventCropX, setEventCropX] = useState(50);
+  const [eventCropY, setEventCropY] = useState(50);
+  const [eventCropScale, setEventCropScale] = useState(1);
+  const [homeCoverActivity, setHomeCoverActivity] = useState<{ id: string; title: string } | null>(
+    null,
+  );
+  const [selectedHomePhotoId, setSelectedHomePhotoId] = useState<string | null>(null);
+  const [homeCropX, setHomeCropX] = useState(50);
+  const [homeCropY, setHomeCropY] = useState(50);
+  const [homeCropScale, setHomeCropScale] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
+  const eventPhotoPreviews = useMemo(
+    () => eventPhotos.map((photo) => URL.createObjectURL(photo)),
+    [eventPhotos],
+  );
+
+  useEffect(
+    () => () => {
+      eventPhotoPreviews.forEach((url) => URL.revokeObjectURL(url));
+    },
+    [eventPhotoPreviews],
+  );
 
   const { data, isPending } = useQuery({
     queryKey: ["admin-content"],
@@ -428,12 +548,32 @@ function ContentTab() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-content"] }),
     onError: (e: Error) => setMessage(e.message),
   });
+  const { data: homeCoverData, isPending: isHomeCoverLoading } = useQuery({
+    queryKey: ["admin-event-home-cover", homeCoverActivity?.id],
+    queryFn: () => getHomeCoverFn({ data: { eventId: homeCoverActivity!.id } }),
+    enabled: Boolean(homeCoverActivity),
+  });
+
+  useEffect(() => {
+    if (!homeCoverData) return;
+    const currentPhoto =
+      homeCoverData.photos.find(
+        (photo) => photo.image_url === homeCoverData.event.home_cover_image_url,
+      ) ?? homeCoverData.photos[0];
+    setSelectedHomePhotoId(currentPhoto?.id ?? null);
+    setHomeCropX(homeCoverData.event.home_cover_position_x ?? 50);
+    setHomeCropY(homeCoverData.event.home_cover_position_y ?? 50);
+    setHomeCropScale(homeCoverData.event.home_cover_scale ?? 1);
+  }, [homeCoverData]);
+
+  const selectedHomePhoto =
+    homeCoverData?.photos.find((photo) => photo.id === selectedHomePhotoId) ?? null;
 
   const createCircular = useMutation({
     mutationFn: async ({ fields, file }: { fields: typeof CIRCULAR_FORM; file: File | null }) => {
       let file_url: string | undefined;
       if (file) {
-        if (file.size > MAX_UPLOAD_BYTES) throw new Error("Attachment must be 6 MB or smaller.");
+        if (file.size > MAX_UPLOAD_BYTES) throw new Error("Attachment must be 15 MB or smaller.");
         const slot = await circularUploadFn({ data: { fileName: file.name } });
         const { error } = await supabase.storage
           .from("circular-files")
@@ -454,10 +594,27 @@ function ContentTab() {
   });
 
   const createEvent = useMutation({
-    mutationFn: async ({ fields, photos }: { fields: typeof EVENT_FORM; photos: File[] }) => {
+    mutationFn: async ({
+      fields,
+      photos,
+      coverIndex,
+      cropX,
+      cropY,
+      cropScale,
+    }: {
+      fields: typeof EVENT_FORM;
+      photos: File[];
+      coverIndex: number;
+      cropX: number;
+      cropY: number;
+      cropScale: number;
+    }) => {
+      if (photos.length > MAX_EVENT_PHOTOS) {
+        throw new Error("Choose no more than " + MAX_EVENT_PHOTOS + " photos for one activity.");
+      }
       for (const photo of photos) {
         if (photo.size > MAX_UPLOAD_BYTES) {
-          throw new Error(`${photo.name} must be 6 MB or smaller.`);
+          throw new Error(`${photo.name} must be 15 MB or smaller.`);
         }
         if (!EVENT_IMAGE_TYPES.has(photo.type)) {
           throw new Error(`${photo.name} must be a JPG, PNG, or WebP image.`);
@@ -475,7 +632,15 @@ function ContentTab() {
           .uploadToSignedUrl(slot.path, slot.token, photo);
         if (error) throw new Error(error.message);
         await addPhotoFn({
-          data: { eventId: event.id, path: slot.path, setAsCover: index === 0 },
+          data: {
+            eventId: event.id,
+            path: slot.path,
+            setAsCover: index === 0,
+            setAsHomeCover: index === coverIndex,
+            homeCoverPositionX: cropX,
+            homeCoverPositionY: cropY,
+            homeCoverScale: cropScale,
+          },
         });
       }
       return event;
@@ -484,8 +649,34 @@ function ContentTab() {
       setShowEventForm(false);
       setEventForm({ ...EVENT_FORM });
       setEventPhotos([]);
-      setMessage("Event published. Photos are visible in the event gallery.");
+      setEventCoverIndex(0);
+      setEventCropX(50);
+      setEventCropY(50);
+      setEventCropScale(1);
+      setMessage("Activity published. Photos are visible in its gallery.");
       qc.invalidateQueries({ queryKey: ["admin-content"] });
+    },
+    onError: (e: Error) => setMessage(e.message),
+  });
+
+  const setHomeCover = useMutation({
+    mutationFn: ({
+      eventId,
+      photoId,
+      cropX,
+      cropY,
+      cropScale,
+    }: {
+      eventId: string;
+      photoId: string;
+      cropX: number;
+      cropY: number;
+      cropScale: number;
+    }) => setHomeCoverFn({ data: { eventId, photoId, cropX, cropY, cropScale } }),
+    onSuccess: () => {
+      setMessage("Home thumbnail and crop updated.");
+      void qc.invalidateQueries({ queryKey: ["admin-event-home-cover"] });
+      void qc.invalidateQueries({ queryKey: ["events"] });
     },
     onError: (e: Error) => setMessage(e.message),
   });
@@ -494,10 +685,12 @@ function ContentTab() {
     title,
     table,
     rows,
+    onEditHomeCover,
   }: {
     title: string;
     table: "circulars" | "events" | "learning_modules";
     rows: { id: string; title: string; is_published: boolean; category?: string | null }[];
+    onEditHomeCover?: (activity: { id: string; title: string }) => void;
   }) {
     return (
       <section className="mt-5">
@@ -511,6 +704,17 @@ function ContentTab() {
                   {r.category ?? "—"} · {r.is_published ? "Published" : "Draft"}
                 </p>
               </div>
+              {table === "events" && onEditHomeCover ? (
+                <button
+                  type="button"
+                  aria-label={`Edit Home cover for ${r.title}`}
+                  onClick={() => onEditHomeCover({ id: r.id, title: r.title })}
+                  className="flex min-h-12 shrink-0 items-center justify-center gap-1 rounded-lg border-2 border-primary px-3 text-primary"
+                >
+                  <Pencil aria-hidden className="size-5" />
+                  <span className="text-xs font-bold">Home cover</span>
+                </button>
+              ) : null}
               <button
                 type="button"
                 aria-label={r.is_published ? `Unpublish ${r.title}` : `Publish ${r.title}`}
@@ -553,7 +757,7 @@ function ContentTab() {
           }}
           className="flex min-h-14 items-center justify-center gap-2 rounded-xl border-2 border-primary text-base font-bold text-primary"
         >
-          <Plus aria-hidden className="size-5" /> New event
+          <Plus aria-hidden className="size-5" /> New activity
         </button>
       </div>
       {message ? <p className="mt-3 text-base font-semibold text-accent">{message}</p> : null}
@@ -606,7 +810,7 @@ function ContentTab() {
           </label>
           <label className="block">
             <span className="text-sm font-semibold text-muted-foreground">
-              Attachment (optional, max 6 MB)
+              Attachment (optional, max 15 MB)
             </span>
             <input
               type="file"
@@ -630,13 +834,36 @@ function ContentTab() {
           className="card-elevated mt-4 space-y-3 p-4"
           onSubmit={(e) => {
             e.preventDefault();
-            createEvent.mutate({ fields: eventForm, photos: eventPhotos });
+            createEvent.mutate({
+              fields: eventForm,
+              photos: eventPhotos,
+              coverIndex: eventCoverIndex,
+              cropX: eventCropX,
+              cropY: eventCropY,
+              cropScale: eventCropScale,
+            });
           }}
         >
-          <h2 className="text-lg font-bold">New event and photo gallery</h2>
+          <h2 className="text-lg font-bold">New activity and photo gallery</h2>
+          <label className="block">
+            <span className="text-sm font-semibold text-muted-foreground">Activity section</span>
+            <select
+              value={eventForm.activity_type}
+              onChange={(e) =>
+                setEventForm({
+                  ...eventForm,
+                  activity_type: e.target.value as "ld" | "other",
+                })
+              }
+              className={inputClass}
+            >
+              <option value="ld">L&amp;D activities</option>
+              <option value="other">Other activities</option>
+            </select>
+          </label>
           {(
             [
-              ["title", "Event title", "text"],
+              ["title", "Activity title", "text"],
               ["category", "Category", "text"],
               ["location", "Location", "text"],
               ["event_date", "Event date", "date"],
@@ -664,19 +891,135 @@ function ContentTab() {
           </label>
           <label className="block">
             <span className="text-sm font-semibold text-muted-foreground">
-              Photos (JPG, PNG, or WebP; each max 6 MB)
+              Photos (up to {MAX_EVENT_PHOTOS}; JPG, PNG, or WebP; each max 15 MB)
             </span>
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
               multiple
-              onChange={(e) => setEventPhotos(Array.from(e.target.files ?? []))}
+              onChange={(e) => {
+                const selected = Array.from(e.target.files ?? []);
+                const allSelected = [...eventPhotos, ...selected];
+                e.currentTarget.value = "";
+                if (allSelected.length > MAX_EVENT_PHOTOS) {
+                  setMessage(
+                    "Only " +
+                      MAX_EVENT_PHOTOS +
+                      " photos can be added to one activity. Select fewer photos.",
+                  );
+                  return;
+                }
+                setEventPhotos(allSelected);
+                if (eventPhotos.length === 0) setEventCoverIndex(0);
+              }}
               className="mt-1 w-full text-base"
             />
             {eventPhotos.length ? (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {eventPhotos.length} photo{eventPhotos.length === 1 ? "" : "s"} selected. The first will be the cover image.
-              </p>
+              <>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {eventPhotos.length} of {MAX_EVENT_PHOTOS} photo
+                  {eventPhotos.length === 1 ? "" : "s"} selected. Select the photo field again to add
+                  more, then choose the image to show as the Home cover below.
+                </p>
+                <fieldset className="mt-3">
+                  <legend className="text-sm font-semibold text-muted-foreground">
+                    Home thumbnail photo and crop
+                  </legend>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Choose the image for the Home card, then position the visible part below.
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {eventPhotos.map((photo, index) => {
+                      const selected = eventCoverIndex === index;
+                      return (
+                        <label
+                          key={photo.name + "-" + index}
+                          className={
+                            "relative cursor-pointer overflow-hidden rounded-xl border-2 bg-muted " +
+                            (selected
+                              ? "border-primary ring-2 ring-primary/20"
+                              : "border-border")
+                          }
+                        >
+                          <input
+                            type="radio"
+                            name="event-cover"
+                            checked={selected}
+                            onChange={() => setEventCoverIndex(index)}
+                            className="sr-only"
+                          />
+                          <img
+                            src={eventPhotoPreviews[index]}
+                            alt={"Use " + photo.name + " as the Home cover"}
+                            className="aspect-[4/3] w-full object-cover"
+                          />
+                          <span className="block truncate px-2 py-1.5 text-xs font-bold">
+                            {selected ? "Home cover" : "Photo " + (index + 1)}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {eventPhotoPreviews[eventCoverIndex] ? (
+                    <div className="mt-4 rounded-xl border-2 border-primary/20 bg-muted/30 p-3">
+                      <h3 className="text-sm font-bold">Home thumbnail crop preview</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        This only changes the small Home card. The full gallery photos stay original.
+                      </p>
+                      <div className="mt-3 grid gap-4 sm:grid-cols-[10rem_1fr] sm:items-center">
+                        <div className="aspect-[4/3] overflow-hidden rounded-lg bg-muted shadow-sm">
+                          <img
+                            src={eventPhotoPreviews[eventCoverIndex]}
+                            alt="Home thumbnail crop preview"
+                            className="size-full object-cover"
+                            style={{
+                              objectPosition: `${eventCropX}% ${eventCropY}%`,
+                              transform: `scale(${eventCropScale})`,
+                              transformOrigin: `${eventCropX}% ${eventCropY}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-3">
+                          <label className="block text-xs font-bold text-muted-foreground">
+                            Horizontal focus: {eventCropX}%
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={eventCropX}
+                              onChange={(e) => setEventCropX(Number(e.target.value))}
+                              className="mt-2 w-full accent-primary"
+                            />
+                          </label>
+                          <label className="block text-xs font-bold text-muted-foreground">
+                            Vertical focus: {eventCropY}%
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={eventCropY}
+                              onChange={(e) => setEventCropY(Number(e.target.value))}
+                              className="mt-2 w-full accent-primary"
+                            />
+                          </label>
+                          <label className="block text-xs font-bold text-muted-foreground">
+                            Zoom / crop: {Math.round(eventCropScale * 100)}%
+                            <input
+                              type="range"
+                              min="1"
+                              max="2.5"
+                              step="0.05"
+                              value={eventCropScale}
+                              onChange={(e) => setEventCropScale(Number(e.target.value))}
+                              className="mt-2 w-full accent-primary"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </fieldset>
+              </>
             ) : null}
           </label>
           <button
@@ -684,7 +1027,7 @@ function ContentTab() {
             disabled={createEvent.isPending}
             className="min-h-14 w-full rounded-xl bg-primary text-lg font-bold text-primary-foreground"
           >
-            {createEvent.isPending ? "Publishing…" : "Publish event"}
+            {createEvent.isPending ? "Publishing…" : "Publish activity"}
           </button>
         </form>
       ) : null}
@@ -700,15 +1043,170 @@ function ContentTab() {
         }))}
       />
       <Group
-        title="Events"
+        title="L&D activities"
         table="events"
-        rows={(data?.events ?? []).map((e) => ({
+        rows={(data?.events ?? []).filter((e) => e.activity_type === "ld").map((e) => ({
           id: e.id,
           title: e.title,
           is_published: e.is_published,
           category: e.category,
         }))}
+        onEditHomeCover={(activity) => {
+          setHomeCoverActivity(activity);
+          setMessage(null);
+        }}
       />
+      <Group
+        title="Other activities"
+        table="events"
+        rows={(data?.events ?? []).filter((e) => e.activity_type === "other").map((e) => ({
+          id: e.id,
+          title: e.title,
+          is_published: e.is_published,
+          category: e.category,
+        }))}
+        onEditHomeCover={(activity) => {
+          setHomeCoverActivity(activity);
+          setMessage(null);
+        }}
+      />
+      {homeCoverActivity ? (
+        <section className="card-elevated mt-4 p-4" aria-labelledby="home-cover-editor-title">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 id="home-cover-editor-title" className="text-lg font-bold">
+                Home cover photo
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">{homeCoverActivity.title}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setHomeCoverActivity(null)}
+              className="min-h-10 rounded-lg border-2 border-border px-3 text-sm font-bold"
+            >
+              Close
+            </button>
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Choose the photo that should appear in the fixed cropped Home gallery card. This does
+            not remove or change any photo in the full activity gallery.
+          </p>
+          {isHomeCoverLoading || !homeCoverData ? (
+            <div className="flex justify-center py-8">
+              <Loader2 aria-hidden className="size-6 animate-spin text-primary" />
+            </div>
+          ) : homeCoverData.photos.length === 0 ? (
+            <p className="mt-4 text-base text-muted-foreground">
+              Add photos while creating this activity before selecting a Home cover.
+            </p>
+          ) : (
+            <>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                {homeCoverData.photos.map((photo) => {
+                  const isSelected = photo.id === selectedHomePhotoId;
+                  return (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      onClick={() => setSelectedHomePhotoId(photo.id)}
+                      className={
+                        "overflow-hidden rounded-xl border-2 bg-muted text-left " +
+                        (isSelected
+                          ? "border-primary ring-2 ring-primary/20"
+                          : "border-border")
+                      }
+                    >
+                      <img
+                        src={photo.image_url}
+                        alt={photo.caption ?? "Activity photo"}
+                        className="aspect-[4/3] w-full object-cover"
+                      />
+                      <span className="block px-2 py-2 text-xs font-bold">
+                        {isSelected ? "Selected for Home" : "Choose this photo"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedHomePhoto ? (
+                <div className="mt-4 rounded-xl border-2 border-primary/20 bg-muted/30 p-3">
+                  <h3 className="text-base font-bold">Crop the Home thumbnail</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Move the focus controls until this small card looks right. Your original gallery
+                    photo will not be changed.
+                  </p>
+                  <div className="mt-3 grid gap-4 sm:grid-cols-[11rem_1fr] sm:items-center">
+                    <div className="aspect-[4/3] overflow-hidden rounded-lg bg-muted shadow-sm">
+                      <img
+                        src={selectedHomePhoto.image_url}
+                        alt="Home thumbnail crop preview"
+                        className="size-full object-cover"
+                        style={{
+                          objectPosition: `${homeCropX}% ${homeCropY}%`,
+                          transform: `scale(${homeCropScale})`,
+                          transformOrigin: `${homeCropX}% ${homeCropY}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="block text-xs font-bold text-muted-foreground">
+                        Horizontal focus: {homeCropX}%
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={homeCropX}
+                          onChange={(e) => setHomeCropX(Number(e.target.value))}
+                          className="mt-2 w-full accent-primary"
+                        />
+                      </label>
+                      <label className="block text-xs font-bold text-muted-foreground">
+                        Vertical focus: {homeCropY}%
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={homeCropY}
+                          onChange={(e) => setHomeCropY(Number(e.target.value))}
+                          className="mt-2 w-full accent-primary"
+                        />
+                      </label>
+                      <label className="block text-xs font-bold text-muted-foreground">
+                        Zoom / crop: {Math.round(homeCropScale * 100)}%
+                        <input
+                          type="range"
+                          min="1"
+                          max="2.5"
+                          step="0.05"
+                          value={homeCropScale}
+                          onChange={(e) => setHomeCropScale(Number(e.target.value))}
+                          className="mt-2 w-full accent-primary"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setHomeCover.mutate({
+                        eventId: homeCoverActivity.id,
+                        photoId: selectedHomePhoto.id,
+                        cropX: homeCropX,
+                        cropY: homeCropY,
+                        cropScale: homeCropScale,
+                      })
+                    }
+                    disabled={setHomeCover.isPending}
+                    className="mt-4 min-h-12 w-full rounded-xl bg-primary px-4 text-base font-bold text-primary-foreground disabled:opacity-60"
+                  >
+                    {setHomeCover.isPending ? "Saving Home thumbnail…" : "Save Home thumbnail crop"}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          )}
+        </section>
+      ) : null}
       <Group
         title="Learning modules"
         table="learning_modules"
@@ -751,7 +1249,7 @@ function AnnouncementsTab() {
     mutationFn: async ({ fields, file }: { fields: typeof ANNOUNCEMENT_FORM; file: File | null }) => {
       let image_path = fields.image_path;
       if (file) {
-        if (file.size > 5 * 1024 * 1024) throw new Error("Announcement image must be 5 MB or smaller.");
+        if (file.size > MAX_UPLOAD_BYTES) throw new Error("Announcement image must be 15 MB or smaller.");
         if (!EVENT_IMAGE_TYPES.has(file.type)) throw new Error("Use a JPG, PNG, or WebP image.");
         const slot = await uploadFn({
           data: {
@@ -849,7 +1347,7 @@ function AnnouncementsTab() {
           </label>
           <label className="block">
             <span className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-              <ImagePlus aria-hidden className="size-4" /> Optional image (JPG, PNG, or WebP; max 5 MB)
+              <ImagePlus aria-hidden className="size-4" /> Optional image (JPG, PNG, or WebP; max 15 MB)
             </span>
             <input
               type="file"
@@ -1086,6 +1584,10 @@ function FormsTab() {
       setMessage("Add a title and choose a file first.");
       return;
     }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setMessage("Form file must be 15 MB or smaller.");
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -1141,7 +1643,7 @@ function FormsTab() {
         <div className="grid grid-cols-2 gap-3">
           <input
             className={inputClass}
-            placeholder="Category"
+            placeholder="Category — e.g. HR Forms"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           />
@@ -1318,7 +1820,7 @@ function LearningTab() {
           throw new Error("Choose an MP4, WebM, or MOV video file.");
         }
         if (videoFile.size > MAX_VIDEO_UPLOAD_BYTES) {
-          throw new Error("Video must be 50 MB or smaller on the free Supabase plan.");
+          throw new Error("Video must be 100 MB or smaller.");
         }
         const slot = await videoUploadFn({
           data: {
@@ -1438,7 +1940,7 @@ function LearningTab() {
         </div>
         <label className="block">
           <span className="text-sm font-semibold text-muted-foreground">
-            Upload lesson video (MP4, WebM, or MOV; max 50 MB)
+            Upload lesson video (MP4, WebM, or MOV; max 100 MB)
           </span>
           <input
             type="file"

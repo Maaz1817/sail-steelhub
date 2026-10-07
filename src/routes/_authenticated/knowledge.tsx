@@ -103,7 +103,7 @@ function KnowledgePage() {
                 {attempts.map((a) => {
                   const m = modules.find((x) => x.id === a.module_id);
                   return (
-                    <li key={a.id} className="card-elevated flex items-center gap-3 p-4">
+                      <li key={a.id} className="learning-history-card card-elevated flex items-center gap-3 p-4">
                       <Trophy aria-hidden className="size-6 shrink-0 text-accent" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-base font-bold">{m?.title ?? "—"}</p>
@@ -150,7 +150,7 @@ function ModuleCard({
 }) {
   const { t } = useI18n();
   return (
-    <article className="card-elevated mt-3 overflow-hidden">
+    <article className={`${featured ? "learning-feature-card" : "learning-card"} card-elevated mt-3 overflow-hidden`}>
       {featured && module.video_url && (
         <div className="aspect-video w-full bg-muted">
           {module.video_source === "upload" ? (

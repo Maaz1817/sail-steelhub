@@ -9,6 +9,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 export const getHomeFeed = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const db: any = context.supabase;
     const { data: profile } = await context.supabase
       .from("employees")
       .select("employee_number, full_name, designation, department, photo_url, date_of_joining")
@@ -20,6 +21,22 @@ export const getHomeFeed = createServerFn({ method: "GET" })
       .from("employees")
       .select("id, full_name, designation, department, date_of_birth, date_of_joining")
       .eq("is_active", true);
+
+    const { data: latestAnnouncement } = await db
+      .from("announcements")
+      .select("id, title, body, image_path, published_at")
+      .eq("is_published", true)
+      .order("published_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let announcementImageUrl: string | null = null;
+    if (latestAnnouncement?.image_path) {
+      const { data: signed } = await (supabaseAdmin as any).storage
+        .from("announcement-images")
+        .createSignedUrl(latestAnnouncement.image_path, 60 * 60);
+      announcementImageUrl = signed?.signedUrl ?? null;
+    }
 
     const now = new Date();
     const indiaDate = new Intl.DateTimeFormat("en-GB", {
@@ -57,5 +74,12 @@ export const getHomeFeed = createServerFn({ method: "GET" })
       }))
       .filter((r) => (r.years ?? 0) > 0);
 
-    return { profile, birthdays, anniversaries };
+    return {
+      profile,
+      birthdays,
+      anniversaries,
+      latestAnnouncement: latestAnnouncement
+        ? { ...latestAnnouncement, image_url: announcementImageUrl }
+        : null,
+    };
   });

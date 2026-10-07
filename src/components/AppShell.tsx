@@ -16,7 +16,7 @@ export function AppShell({
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <header className="surface-steel flex items-center gap-3 px-5 py-4">
+      <header className="app-header surface-steel flex items-center gap-3 px-5 py-4">
         <div className="rounded-full bg-primary-foreground/95 p-2">
           <SailLogo size={36} priority />
         </div>

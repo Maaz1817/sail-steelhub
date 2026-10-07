@@ -44,14 +44,37 @@ export const getAdminOverview = createServerFn({ method: "GET" })
       return c ?? 0;
     };
 
-    const [employees, activated, modules, events, circulars, attempts] = await Promise.all([
+    const [employees, activated, awaitingActivation, inactive, modules, events, circulars, attempts] = await Promise.all([
       count("employees"),
-      count("employees", (q) => q.not("auth_user_id", "is", null)),
+      count("employees", (q) => q.eq("is_active", true).not("auth_user_id", "is", null)),
+      count("employees", (q) => q.eq("is_active", true).is("auth_user_id", null)),
+      count("employees", (q) => q.eq("is_active", false)),
       count("learning_modules"),
       count("events"),
       count("circulars"),
       count("quiz_attempts"),
     ]);
+
+    const { data: roster, error: rosterError } = await admin
+      .from("employees")
+      .select("id, employee_number, full_name, designation, department, is_active, auth_user_id")
+      .order("full_name", { ascending: true })
+      .limit(1000);
+    if (rosterError) throw new Error("Unable to load employee activation overview");
+
+    const overviewEmployee = (employee: (typeof roster)[number]) => ({
+      id: employee.id,
+      employee_number: employee.employee_number,
+      full_name: employee.full_name,
+      designation: employee.designation,
+      department: employee.department,
+    });
+    const activeRoster = (roster ?? []).filter((employee) => employee.is_active);
+    const employeeStatus = {
+      activated: activeRoster.filter((employee) => employee.auth_user_id).map(overviewEmployee),
+      awaitingActivation: activeRoster.filter((employee) => !employee.auth_user_id).map(overviewEmployee),
+      inactive: (roster ?? []).filter((employee) => !employee.is_active).map(overviewEmployee),
+    };
 
     const { data: logs } = await admin
       .from("audit_logs")
@@ -60,7 +83,8 @@ export const getAdminOverview = createServerFn({ method: "GET" })
       .limit(25);
 
     return {
-      stats: { employees, activated, modules, events, circulars, attempts },
+      stats: { employees, activated, awaitingActivation, inactive, modules, events, circulars, attempts },
+      employeeStatus,
       logs: logs ?? [],
     };
   });
@@ -213,7 +237,7 @@ export const adminListContent = createServerFn({ method: "GET" })
         .order("issued_date", { ascending: false }),
       admin
         .from("events")
-        .select("id, title, category, location, event_date, is_published")
+        .select("id, title, category, location, event_date, activity_type, is_published")
         .order("event_date", { ascending: false }),
       admin
         .from("learning_modules")
@@ -314,6 +338,7 @@ const eventInput = z.object({
   title: z.string().min(3).max(200),
   description: z.string().max(4000).optional(),
   category: z.string().max(60).optional(),
+  activity_type: z.enum(["ld", "other"]).optional(),
   location: z.string().max(160).optional(),
   event_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   is_published: z.boolean().optional(),
@@ -331,6 +356,7 @@ export const adminCreateEvent = createServerFn({ method: "POST" })
         title: data.title.trim(),
         description: data.description?.trim() || null,
         category: data.category?.trim() || null,
+        activity_type: data.activity_type ?? "ld",
         location: data.location?.trim() || null,
         event_date: data.event_date,
         is_published: data.is_published ?? true,
@@ -364,7 +390,7 @@ export const adminCreateEventPhotoUpload = createServerFn({ method: "POST" })
     return { path, token: signed.token };
   });
 
-/** Attach an uploaded image to an event and optionally use it as the cover image. */
+/** Attach an uploaded image to an activity and optionally set its gallery or Home cover. */
 export const adminAddEventPhoto = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -374,11 +400,24 @@ export const adminAddEventPhoto = createServerFn({ method: "POST" })
         path: z.string().min(1).max(400).regex(/^events\//),
         caption: z.string().max(300).optional(),
         setAsCover: z.boolean().optional(),
+        setAsHomeCover: z.boolean().optional(),
+        homeCoverPositionX: z.number().int().min(0).max(100).optional(),
+        homeCoverPositionY: z.number().int().min(0).max(100).optional(),
+        homeCoverScale: z.number().min(1).max(2.5).optional(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const admin = await requireAdmin(context);
+    const { count: photoCount, error: countError } = await admin
+      .from("event_photos")
+      .select("id", { count: "exact", head: true })
+      .eq("event_id", data.eventId);
+    if (countError) throw new Error(countError.message);
+    if ((photoCount ?? 0) >= 5) {
+      throw new Error("An activity can have a maximum of 5 photos.");
+    }
+
     const { data: lastPhoto } = await admin
       .from("event_photos")
       .select("order_index")
@@ -407,10 +446,100 @@ export const adminAddEventPhoto = createServerFn({ method: "POST" })
         .eq("id", data.eventId);
       if (coverError) throw new Error(coverError.message);
     }
+    if (data.setAsHomeCover) {
+      const { error: homeCoverError } = await admin
+        .from("events")
+        .update({
+          home_cover_image_url: publicUrl.publicUrl,
+          home_cover_position_x: data.homeCoverPositionX ?? 50,
+          home_cover_position_y: data.homeCoverPositionY ?? 50,
+          home_cover_scale: data.homeCoverScale ?? 1,
+        })
+        .eq("id", data.eventId);
+      if (homeCoverError) throw new Error(homeCoverError.message);
+    }
     await logAction(admin, context.userId, "event.photo.add", "event_photos", row.id, {
       event_id: data.eventId,
     });
     return { id: row.id as string };
+  });
+
+/** The admin-only photo list used to choose a dedicated Home gallery cover. */
+export const adminGetEventHomeCover = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { eventId: string }) =>
+    z.object({ eventId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await requireAdmin(context);
+    const [{ data: event, error: eventError }, { data: photos, error: photosError }] = await Promise.all([
+      admin
+        .from("events")
+        .select(
+          "id, title, home_cover_image_url, home_cover_position_x, home_cover_position_y, home_cover_scale",
+        )
+        .eq("id", data.eventId)
+        .maybeSingle(),
+      admin
+        .from("event_photos")
+        .select("id, image_url, caption, order_index")
+        .eq("event_id", data.eventId)
+        .order("order_index", { ascending: true }),
+    ]);
+    if (eventError) throw new Error(eventError.message);
+    if (photosError) throw new Error(photosError.message);
+    if (!event) throw new Error("Activity not found");
+    return { event, photos: photos ?? [] };
+  });
+
+/** Set the photo used in the Home gallery only. */
+export const adminSetEventHomeCover = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: {
+    eventId: string;
+    photoId: string;
+    cropX: number;
+    cropY: number;
+    cropScale: number;
+  }) =>
+    z
+      .object({
+        eventId: z.string().uuid(),
+        photoId: z.string().uuid(),
+        cropX: z.number().int().min(0).max(100),
+        cropY: z.number().int().min(0).max(100),
+        cropScale: z.number().min(1).max(2.5),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await requireAdmin(context);
+    const { data: photo, error: photoError } = await admin
+      .from("event_photos")
+      .select("id, image_url")
+      .eq("id", data.photoId)
+      .eq("event_id", data.eventId)
+      .maybeSingle();
+    if (photoError) throw new Error(photoError.message);
+    if (!photo) throw new Error("Photo not found in this activity");
+
+    const { error } = await admin
+      .from("events")
+      .update({
+        home_cover_image_url: photo.image_url,
+        home_cover_position_x: data.cropX,
+        home_cover_position_y: data.cropY,
+        home_cover_scale: data.cropScale,
+      })
+      .eq("id", data.eventId);
+    if (error) throw new Error(error.message);
+    await logAction(admin, context.userId, "event.home_cover.set", "events", data.eventId, {
+      photo_id: data.photoId,
+      crop_x: data.cropX,
+      crop_y: data.cropY,
+      crop_scale: data.cropScale,
+    });
+    return { ok: true };
   });
 
 /** Celebration notifications created by the daily database task. */

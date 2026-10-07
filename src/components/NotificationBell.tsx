@@ -20,9 +20,9 @@ export function NotificationBell() {
       aria-label={unread ? `${unread} unread notifications` : "Open notifications"}
       className="relative flex size-11 items-center justify-center rounded-full bg-primary-foreground/15 text-primary-foreground transition-colors hover:bg-primary-foreground/25"
     >
-      <Bell aria-hidden className="size-5" />
+      <Bell aria-hidden className={`size-5 ${unread > 0 ? "bell-with-unread" : ""}`} />
       {unread > 0 ? (
-        <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-xs font-extrabold leading-5 text-destructive-foreground">
+        <span className="notification-badge absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-xs font-extrabold leading-5 text-destructive-foreground">
           {unread > 9 ? "9+" : unread}
         </span>
       ) : null}
