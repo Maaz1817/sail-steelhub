@@ -47,49 +47,49 @@
 :root {
   --radius: 0.875rem;
 
-  --background: oklch(0.98 0.005 250);
-  --foreground: oklch(0.22 0.03 255);
+  --background: oklch(0.955 0.012 250);
+  --foreground: oklch(0.2 0.035 255);
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.03 255);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.03 255);
+  --card: oklch(0.99 0.004 250);
+  --card-foreground: oklch(0.2 0.035 255);
+  --popover: oklch(0.99 0.004 250);
+  --popover-foreground: oklch(0.2 0.035 255);
 
   /* Steel blue */
-  --primary: oklch(0.38 0.09 253);
+  --primary: oklch(0.33 0.08 253);
   --primary-foreground: oklch(0.99 0.005 250);
-  --primary-soft: oklch(0.94 0.02 250);
+  --primary-soft: oklch(0.88 0.03 250);
 
-  --secondary: oklch(0.93 0.015 250);
-  --secondary-foreground: oklch(0.28 0.05 253);
+  --secondary: oklch(0.88 0.022 250);
+  --secondary-foreground: oklch(0.25 0.055 253);
 
-  --muted: oklch(0.95 0.008 250);
-  --muted-foreground: oklch(0.48 0.02 255);
+  --muted: oklch(0.91 0.012 250);
+  --muted-foreground: oklch(0.43 0.025 255);
 
   /* Molten orange */
-  --accent: oklch(0.68 0.18 48);
+  --accent: oklch(0.59 0.13 48);
   --accent-foreground: oklch(0.2 0.03 255);
 
-  --success: oklch(0.55 0.14 155);
+  --success: oklch(0.48 0.1 155);
   --success-foreground: oklch(0.99 0.005 250);
 
   --destructive: oklch(0.53 0.21 27);
   --destructive-foreground: oklch(0.99 0.005 250);
 
-  --border: oklch(0.88 0.012 250);
-  --input: oklch(0.88 0.012 250);
-  --ring: oklch(0.38 0.09 253);
+  --border: oklch(0.81 0.02 250);
+  --input: oklch(0.81 0.02 250);
+  --ring: oklch(0.33 0.08 253);
 
   --gradient-steel: linear-gradient(
     160deg,
-    oklch(0.32 0.08 253) 0%,
-    oklch(0.42 0.09 250) 55%,
-    oklch(0.5 0.07 245) 100%
+    oklch(0.27 0.07 253) 0%,
+    oklch(0.35 0.08 250) 55%,
+    oklch(0.42 0.06 245) 100%
   );
   --gradient-molten: linear-gradient(
     100deg,
-    oklch(0.68 0.18 48) 0%,
-    oklch(0.74 0.16 62) 100%
+    oklch(0.59 0.13 48) 0%,
+    oklch(0.66 0.11 62) 100%
   );
   --shadow-card: 0 1px 2px oklch(0.3 0.05 255 / 0.06), 0 8px 24px oklch(0.3 0.05 255 / 0.08);
   --shadow-lift: 0 12px 32px oklch(0.3 0.05 255 / 0.16);
@@ -131,6 +131,10 @@
 
   body {
     background-color: var(--color-background);
+    background-image:
+      radial-gradient(circle at 4% -8%, oklch(0.76 0.05 245 / 0.26), transparent 24rem),
+      radial-gradient(circle at 100% 18%, oklch(0.8 0.045 70 / 0.2), transparent 22rem);
+    background-attachment: fixed;
     color: var(--color-foreground);
     font-family: var(--font-sans);
     /* Accessibility: comfortable base size for 55+ employees */
@@ -159,6 +163,7 @@
 @utility card-elevated {
   background-color: var(--color-card);
   color: var(--color-card-foreground);
+  border: 1px solid oklch(0.79 0.02 250 / 0.9);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-card);
 }
@@ -210,6 +215,473 @@
 
 @utility animate-rise {
   animation: rise-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@layer components {
+  .app-header {
+    background-image:
+      linear-gradient(110deg, oklch(0.28 0.075 253 / 0.2), transparent 48%),
+      var(--gradient-steel);
+    box-shadow: 0 5px 18px oklch(0.25 0.07 253 / 0.22);
+  }
+
+  .bottom-nav {
+    background-color: oklch(0.975 0.008 250 / 0.95);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 -5px 20px oklch(0.3 0.05 255 / 0.11);
+  }
+
+  .home-welcome {
+    border-color: oklch(0.66 0.06 247 / 0.7);
+    background:
+      radial-gradient(circle at 94% 12%, oklch(0.78 0.055 77 / 0.5), transparent 9rem),
+      linear-gradient(135deg, oklch(0.94 0.025 248), oklch(0.87 0.035 239));
+  }
+
+  .gallery-section {
+    border: 1px solid oklch(0.75 0.035 44 / 0.72);
+    border-radius: var(--radius-2xl);
+    background: linear-gradient(145deg, oklch(0.98 0.006 250 / 0.95), oklch(0.91 0.025 72 / 0.72));
+    padding: 1rem;
+    box-shadow: var(--shadow-card);
+  }
+
+  .gallery-card {
+    border-color: oklch(0.7 0.06 52 / 0.58);
+    box-shadow: 0 3px 12px oklch(0.47 0.09 50 / 0.13);
+  }
+
+  .announcement-card {
+    border-color: oklch(0.68 0.075 74 / 0.7);
+    background:
+      linear-gradient(115deg, oklch(0.985 0.004 250), oklch(0.91 0.03 76));
+  }
+
+  .quick-action {
+    min-height: 6.25rem;
+    border: 1px solid var(--section-border);
+    border-radius: var(--radius-xl);
+    background: linear-gradient(145deg, oklch(0.98 0.005 250 / 0.96), var(--section-tint));
+    color: var(--section-ink);
+    box-shadow: 0 4px 14px color-mix(in oklch, var(--section-ink) 12%, transparent);
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+
+  .quick-action:active {
+    transform: scale(0.97);
+  }
+
+  .quick-learning {
+    --section-tint: oklch(0.84 0.045 190);
+    --section-border: oklch(0.58 0.075 190 / 0.72);
+    --section-ink: oklch(0.31 0.07 195);
+  }
+
+  .quick-ai {
+    --section-tint: oklch(0.86 0.05 300);
+    --section-border: oklch(0.59 0.085 300 / 0.7);
+    --section-ink: oklch(0.34 0.09 300);
+  }
+
+  .quick-circulars {
+    --section-tint: oklch(0.87 0.055 64);
+    --section-border: oklch(0.62 0.085 64 / 0.72);
+    --section-ink: oklch(0.4 0.095 57);
+  }
+
+  .quick-forms {
+    --section-tint: oklch(0.85 0.05 151);
+    --section-border: oklch(0.56 0.075 151 / 0.7);
+    --section-ink: oklch(0.31 0.07 151);
+  }
+
+  .quick-activities {
+    --section-tint: oklch(0.87 0.045 29);
+    --section-border: oklch(0.64 0.075 29 / 0.7);
+    --section-ink: oklch(0.4 0.09 29);
+  }
+
+  .celebration-card {
+    border: 1px solid var(--celebration-border);
+    background: linear-gradient(110deg, oklch(1 0 0), var(--celebration-tint));
+  }
+
+  .birthday-card {
+    --celebration-tint: oklch(0.965 0.055 72);
+    --celebration-border: oklch(0.81 0.11 72 / 0.62);
+  }
+
+  .anniversary-card {
+    --celebration-tint: oklch(0.95 0.05 175);
+    --celebration-border: oklch(0.78 0.09 175 / 0.62);
+  }
+
+  .quote-card {
+    background-image:
+      radial-gradient(circle at 95% 8%, oklch(0.7 0.15 57 / 0.28), transparent 11rem),
+      var(--gradient-steel);
+    box-shadow: 0 10px 26px oklch(0.3 0.08 253 / 0.22);
+  }
+
+  .learning-feature-card {
+    border: 1px solid oklch(0.7 0.12 190 / 0.65);
+    background: linear-gradient(145deg, oklch(1 0 0), oklch(0.95 0.07 190 / 0.34));
+  }
+
+  .learning-card,
+  .learning-history-card {
+    border: 1px solid oklch(0.79 0.075 190 / 0.62);
+    background: linear-gradient(120deg, oklch(1 0 0), oklch(0.975 0.03 190));
+  }
+
+  .circular-search {
+    border-color: oklch(0.76 0.11 62 / 0.72) !important;
+    background: linear-gradient(120deg, oklch(1 0 0), oklch(0.97 0.045 68)) !important;
+  }
+
+  .circular-card {
+    border-color: oklch(0.8 0.1 62 / 0.62) !important;
+    background: linear-gradient(120deg, oklch(1 0 0), oklch(0.98 0.035 68));
+  }
+
+  .forms-search {
+    border-color: oklch(0.72 0.11 151 / 0.7) !important;
+    background: linear-gradient(120deg, oklch(1 0 0), oklch(0.96 0.055 151)) !important;
+  }
+
+  .form-card {
+    border-color: oklch(0.76 0.1 151 / 0.63);
+    background: linear-gradient(120deg, oklch(1 0 0), oklch(0.975 0.04 151));
+  }
+
+  .notification-summary {
+    border-color: oklch(0.76 0.095 282 / 0.68);
+    background:
+      radial-gradient(circle at 92% 12%, oklch(0.9 0.1 62 / 0.62), transparent 8rem),
+      linear-gradient(135deg, oklch(0.98 0.035 284), oklch(0.95 0.05 257));
+  }
+
+  .notification-card {
+    position: relative;
+    border: 1px solid oklch(0.86 0.025 254);
+    animation: notification-enter 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .notification-card:nth-child(2) { animation-delay: 60ms; }
+  .notification-card:nth-child(3) { animation-delay: 120ms; }
+  .notification-card:nth-child(4) { animation-delay: 180ms; }
+
+  .notification-unread {
+    border-color: oklch(0.67 0.115 253 / 0.74);
+    box-shadow: 0 8px 22px oklch(0.42 0.09 253 / 0.13);
+  }
+
+  .notification-announcement {
+    background: linear-gradient(120deg, oklch(1 0 0), oklch(0.975 0.042 74));
+  }
+
+  .celebration-notification {
+    overflow: hidden;
+    background: linear-gradient(120deg, oklch(1 0 0), var(--celebration-tint));
+  }
+
+  .celebration-notification::after {
+    content: "✦";
+    position: absolute;
+    right: 1rem;
+    top: 0.45rem;
+    color: var(--celebration-sparkle);
+    font-size: 1.4rem;
+    animation: celebration-sparkle 2.7s ease-in-out infinite;
+  }
+
+  .notification-birthday {
+    --celebration-tint: oklch(0.965 0.07 75);
+    --celebration-sparkle: oklch(0.67 0.15 67);
+    border-color: oklch(0.82 0.115 75 / 0.7);
+  }
+
+  .notification-anniversary {
+    --celebration-tint: oklch(0.95 0.065 175);
+    --celebration-sparkle: oklch(0.45 0.13 175);
+    border-color: oklch(0.76 0.1 175 / 0.7);
+  }
+
+  .wish-entry {
+    border: 1px solid oklch(0.83 0.055 285 / 0.45);
+    background: oklch(0.975 0.032 284);
+    animation: wish-arrive 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .wish-send-button {
+    background-image: linear-gradient(135deg, oklch(0.46 0.13 285), oklch(0.56 0.15 300));
+    box-shadow: 0 4px 12px oklch(0.45 0.12 285 / 0.24);
+    transition: transform 160ms ease;
+  }
+
+  .wish-send-button:active { transform: scale(0.92); }
+
+  .notification-badge {
+    animation: badge-pulse 2.2s ease-in-out infinite;
+  }
+
+  .bell-with-unread {
+    animation: bell-nudge 3.6s ease-in-out infinite;
+  }
+
+  /* Stronger, professional colour panels. These stay clearly visible on phone screens. */
+  .home-welcome {
+    background:
+      radial-gradient(circle at 95% 10%, oklch(0.86 0.07 78 / 0.58), transparent 9rem),
+      linear-gradient(135deg, oklch(0.93 0.035 245), oklch(0.84 0.055 232));
+    color: oklch(0.23 0.05 252);
+    box-shadow: 0 9px 20px oklch(0.31 0.07 245 / 0.16);
+  }
+
+  .home-welcome .text-muted-foreground,
+  .gallery-section .text-muted-foreground,
+  .announcement-card .text-muted-foreground,
+  .celebration-card .text-muted-foreground,
+  .learning-feature-card .text-muted-foreground,
+  .learning-card .text-muted-foreground,
+  .learning-history-card .text-muted-foreground,
+  .circular-card .text-muted-foreground,
+  .form-card .text-muted-foreground,
+  .notification-summary .text-muted-foreground,
+  .notification-card .text-muted-foreground {
+    color: oklch(0.89 0.012 250) !important;
+  }
+
+  .home-welcome .text-muted-foreground {
+    color: oklch(0.39 0.045 250) !important;
+  }
+
+  .gallery-section {
+    background: linear-gradient(135deg, oklch(0.28 0.055 45), oklch(0.38 0.065 52));
+    color: oklch(0.985 0.008 250);
+    box-shadow: 0 10px 24px oklch(0.34 0.08 50 / 0.2);
+  }
+
+  .gallery-section .text-primary,
+  .announcement-card .text-primary {
+    color: oklch(0.88 0.09 75) !important;
+  }
+
+  .gallery-card {
+    background: oklch(0.98 0.004 250);
+    color: oklch(0.21 0.035 255);
+  }
+
+  .announcement-card {
+    background: linear-gradient(135deg, oklch(0.29 0.07 292), oklch(0.39 0.07 279));
+    color: oklch(0.985 0.008 250);
+    box-shadow: 0 10px 24px oklch(0.3 0.08 290 / 0.2);
+  }
+
+  .quick-action {
+    border-color: transparent;
+    color: oklch(0.98 0.006 250);
+    box-shadow: 0 9px 20px color-mix(in oklch, var(--section-ink) 33%, transparent);
+  }
+
+  .quick-action svg { color: inherit !important; }
+
+  .quick-learning {
+    background: linear-gradient(135deg, oklch(0.29 0.075 195), oklch(0.4 0.09 190));
+  }
+
+  .quick-ai {
+    background: linear-gradient(135deg, oklch(0.29 0.085 300), oklch(0.4 0.095 294));
+  }
+
+  .quick-circulars {
+    background: linear-gradient(135deg, oklch(0.34 0.075 62), oklch(0.45 0.09 57));
+  }
+
+  .quick-forms {
+    background: linear-gradient(135deg, oklch(0.27 0.065 151), oklch(0.37 0.075 151));
+  }
+
+  .quick-activities {
+    background: linear-gradient(135deg, oklch(0.33 0.075 29), oklch(0.43 0.085 29));
+  }
+
+  .birthday-card {
+    background: linear-gradient(135deg, oklch(0.34 0.075 68), oklch(0.46 0.09 75));
+    color: oklch(0.99 0.008 250);
+  }
+
+  .anniversary-card {
+    background: linear-gradient(135deg, oklch(0.28 0.065 175), oklch(0.39 0.075 175));
+    color: oklch(0.99 0.008 250);
+  }
+
+  .learning-feature-card,
+  .learning-card,
+  .learning-history-card {
+    background: linear-gradient(135deg, oklch(0.27 0.06 195), oklch(0.37 0.07 201));
+    color: oklch(0.985 0.008 250);
+  }
+
+  .circular-search,
+  .forms-search {
+    background: oklch(0.98 0.006 250) !important;
+  }
+
+  .circular-card {
+    background: linear-gradient(135deg, oklch(0.3 0.06 60), oklch(0.4 0.07 60));
+    color: oklch(0.985 0.008 250);
+  }
+
+  .form-card {
+    background: linear-gradient(135deg, oklch(0.27 0.06 151), oklch(0.37 0.07 151));
+    color: oklch(0.985 0.008 250);
+  }
+
+  .notification-summary {
+    background: linear-gradient(135deg, oklch(0.27 0.075 282), oklch(0.38 0.08 285));
+    color: oklch(0.985 0.008 250);
+  }
+
+  .notification-announcement {
+    background: linear-gradient(135deg, oklch(0.29 0.06 253), oklch(0.38 0.065 263));
+    color: oklch(0.985 0.008 250);
+  }
+
+  .notification-birthday {
+    background: linear-gradient(135deg, oklch(0.35 0.08 68), oklch(0.46 0.095 75));
+    color: oklch(0.99 0.008 250);
+  }
+
+  .notification-anniversary {
+    background: linear-gradient(135deg, oklch(0.28 0.07 175), oklch(0.39 0.08 175));
+    color: oklch(0.99 0.008 250);
+  }
+
+  .wish-entry {
+    background: oklch(0.97 0.025 285);
+    color: oklch(0.22 0.04 285);
+  }
+
+  /* Internal pages use lighter colour panels so every label stays easy to read. */
+  .learning-feature-card,
+  .learning-card,
+  .learning-history-card {
+    background: linear-gradient(135deg, oklch(0.94 0.045 195), oklch(0.84 0.07 201));
+    color: oklch(0.23 0.055 201);
+    border-color: oklch(0.64 0.075 201 / 0.7);
+  }
+
+  .circular-card {
+    background: linear-gradient(135deg, oklch(0.96 0.035 62), oklch(0.87 0.07 60));
+    color: oklch(0.28 0.06 60);
+    border-color: oklch(0.66 0.075 60 / 0.7) !important;
+  }
+
+  .form-card {
+    background: linear-gradient(135deg, oklch(0.94 0.04 151), oklch(0.84 0.065 151));
+    color: oklch(0.23 0.055 151);
+    border-color: oklch(0.61 0.07 151 / 0.7);
+  }
+
+  .notification-summary {
+    background: linear-gradient(135deg, oklch(0.94 0.045 282), oklch(0.85 0.07 285));
+    color: oklch(0.25 0.06 285);
+    border-color: oklch(0.63 0.08 285 / 0.7);
+  }
+
+  .notification-announcement {
+    background: linear-gradient(135deg, oklch(0.94 0.03 253), oklch(0.85 0.06 263));
+    color: oklch(0.23 0.05 253);
+  }
+
+  .notification-birthday {
+    background: linear-gradient(135deg, oklch(0.96 0.05 68), oklch(0.88 0.08 75));
+    color: oklch(0.29 0.065 68);
+  }
+
+  .notification-anniversary {
+    background: linear-gradient(135deg, oklch(0.94 0.045 175), oklch(0.84 0.075 175));
+    color: oklch(0.22 0.06 175);
+  }
+
+  .learning-feature-card .text-muted-foreground,
+  .learning-card .text-muted-foreground,
+  .learning-history-card .text-muted-foreground,
+  .circular-card .text-muted-foreground,
+  .form-card .text-muted-foreground,
+  .notification-summary .text-muted-foreground,
+  .notification-card .text-muted-foreground {
+    color: oklch(0.38 0.035 250) !important;
+  }
+
+  /* Home page keeps its colourful layout, with lighter readable content panels. */
+  .gallery-section {
+    background: linear-gradient(135deg, oklch(0.96 0.035 55), oklch(0.87 0.065 60));
+    color: oklch(0.28 0.055 58);
+    border-color: oklch(0.66 0.075 60 / 0.7);
+  }
+
+  .announcement-card {
+    background: linear-gradient(135deg, oklch(0.95 0.04 292), oklch(0.86 0.065 285));
+    color: oklch(0.26 0.055 285);
+    border-color: oklch(0.64 0.075 285 / 0.7);
+  }
+
+  .birthday-card {
+    background: linear-gradient(135deg, oklch(0.96 0.045 68), oklch(0.88 0.075 75));
+    color: oklch(0.29 0.065 68);
+  }
+
+  .anniversary-card {
+    background: linear-gradient(135deg, oklch(0.94 0.04 175), oklch(0.85 0.07 175));
+    color: oklch(0.22 0.06 175);
+  }
+
+  .quote-card {
+    background: oklch(0.99 0.004 250);
+    color: oklch(0.2 0.035 255);
+    border: 1px solid oklch(0.78 0.025 245);
+    box-shadow: var(--shadow-card);
+  }
+
+  .gallery-section .text-muted-foreground,
+  .announcement-card .text-muted-foreground,
+  .celebration-card .text-muted-foreground {
+    color: oklch(0.38 0.035 250) !important;
+  }
+
+  .gallery-section .text-primary,
+  .announcement-card .text-primary {
+    color: oklch(0.31 0.065 253) !important;
+  }
+}
+
+@keyframes notification-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes wish-arrive {
+  from { opacity: 0; transform: translateX(-8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes celebration-sparkle {
+  0%, 100% { transform: scale(0.72) rotate(0deg); opacity: 0.38; }
+  50% { transform: scale(1.16) rotate(18deg); opacity: 1; }
+}
+
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 oklch(0.53 0.21 27 / 0.4); }
+  50% { transform: scale(1.08); box-shadow: 0 0 0 5px oklch(0.53 0.21 27 / 0); }
+}
+
+@keyframes bell-nudge {
+  0%, 88%, 100% { transform: rotate(0deg); }
+  91% { transform: rotate(12deg); }
+  94% { transform: rotate(-10deg); }
+  97% { transform: rotate(5deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {

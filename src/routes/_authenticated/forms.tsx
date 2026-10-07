@@ -7,6 +7,12 @@ import { AppShell } from "@/components/AppShell";
 import { useI18n } from "@/lib/i18n";
 import { getForms, getFormDownloadUrl } from "@/lib/forms.functions";
 
+const HR_FORMS_CATEGORY = "HR Forms";
+
+function isHrForm(category: string | null) {
+  return ["hr", "hr forms", "human resources"].includes(category?.trim().toLowerCase() ?? "");
+}
+
 export const Route = createFileRoute("/_authenticated/forms")({
   head: () => ({
     meta: [
@@ -40,12 +46,19 @@ function FormsPage() {
 
   const forms = data?.forms ?? [];
   const categories = useMemo(
-    () => Array.from(new Set(forms.map((f) => f.category).filter(Boolean))) as string[],
+    () => [
+      HR_FORMS_CATEGORY,
+      ...(Array.from(new Set(forms.map((f) => f.category).filter(Boolean))) as string[]).filter(
+        (item) => !isHrForm(item),
+      ),
+    ],
     [forms],
   );
 
   const filtered = forms.filter((f) => {
-    const inCategory = category === "__all" || f.category === category;
+    const inCategory =
+      category === "__all" ||
+      (category === HR_FORMS_CATEGORY ? isHrForm(f.category) : f.category === category);
     const q = query.trim().toLowerCase();
     const inQuery =
       !q ||
@@ -60,7 +73,18 @@ function FormsPage() {
     setError(null);
     try {
       const res = await downloadFn({ data: { formId: id } });
-      window.open(res.url, "_blank", "noopener");
+      const response = await fetch(res.url);
+      if (!response.ok) throw new Error("Unable to download the form");
+
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = res.fileName || "SAIL-form";
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
     } catch {
       setError(t("forms.downloadFailed"));
     } finally {
@@ -80,7 +104,7 @@ function FormsPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("forms.search")}
-          className="min-h-14 w-full rounded-xl border-2 border-border bg-card pl-11 pr-3 text-base"
+          className="forms-search min-h-14 w-full rounded-xl border-2 border-border bg-card pl-11 pr-3 text-base"
         />
       </label>
 
@@ -115,7 +139,7 @@ function FormsPage() {
       ) : (
         <ul className="mt-4 space-y-4">
           {filtered.map((f) => (
-            <li key={f.id} className="card-elevated p-4">
+            <li key={f.id} className="form-card card-elevated p-4">
               <div className="flex items-start gap-3">
                 <FileSpreadsheet aria-hidden className="mt-1 size-6 shrink-0 text-primary" />
                 <div className="min-w-0">

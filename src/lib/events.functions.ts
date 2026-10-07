@@ -1,13 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-/** Published plant events, newest first. */
+/** Published plant activities, newest first. */
 export const getEvents = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data: events } = await context.supabase
       .from("events")
-      .select("id, title, description, category, location, event_date, cover_image_url")
+      .select(
+        "id, title, description, category, location, event_date, activity_type, cover_image_url, home_cover_image_url, home_cover_position_x, home_cover_position_y, home_cover_scale",
+      )
       .eq("is_published", true)
       .order("event_date", { ascending: false });
 
@@ -25,11 +27,15 @@ export const getEvents = createServerFn({ method: "GET" })
     }
 
     return {
-      events: (events ?? []).map((e) => ({ ...e, photo_count: counts[e.id] ?? 0 })),
+      events: (events ?? []).map((e) => ({
+        ...e,
+        home_image_url: e.home_cover_image_url ?? e.cover_image_url,
+        photo_count: counts[e.id] ?? 0,
+      })),
     };
   });
 
-/** One published event with its photo gallery. */
+/** One published activity with its photo gallery. */
 export const getEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { eventId: string }) => {
@@ -39,11 +45,11 @@ export const getEvent = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: event } = await context.supabase
       .from("events")
-      .select("id, title, description, category, location, event_date, cover_image_url")
+      .select("id, title, description, category, location, event_date, activity_type, cover_image_url")
       .eq("id", data.eventId)
       .eq("is_published", true)
       .maybeSingle();
-    if (!event) throw new Error("Event not found");
+    if (!event) throw new Error("Activity not found");
 
     const { data: photos } = await context.supabase
       .from("event_photos")

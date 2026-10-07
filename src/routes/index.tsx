@@ -10,13 +10,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Official employee knowledge hub for SAIL Salem Steel Plant: daily learning, quizzes, circulars, events and announcements.",
+          "Arivu is the official employee knowledge app for SAIL Salem Steel Plant: daily learning, quizzes, circulars, activities and announcements.",
       },
-      { property: "og:title", content: "SAIL Employee Knowledge Management System" },
+      { property: "og:title", content: "Arivu — SAIL Salem Steel Plant" },
       {
         property: "og:description",
         content:
-          "Daily learning, safety knowledge, circulars and events for Salem Steel Plant employees.",
+          "Daily learning, safety knowledge, circulars and activities for Salem Steel Plant employees.",
       },
     ],
   }),

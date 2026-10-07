@@ -5,9 +5,9 @@ import { useI18n } from "@/lib/i18n";
 const ITEMS = [
   { to: "/home", icon: Home, key: "nav.home" },
   { to: "/knowledge", icon: BookOpen, key: "nav.knowledge" },
-  { to: "/forms", icon: FileSpreadsheet, key: "nav.forms" },
   { to: "/events", icon: CalendarDays, key: "nav.events" },
   { to: "/circulars", icon: FileText, key: "nav.circulars" },
+  { to: "/forms", icon: FileSpreadsheet, key: "nav.forms" },
   { to: "/profile", icon: User, key: "nav.profile" },
 ] as const;
 
@@ -17,7 +17,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label={t("nav.label")}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_12px_rgba(0,0,0,0.10)]"
+      className="bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-border pb-[env(safe-area-inset-bottom)]"
     >
       <ul className="mx-auto grid max-w-md grid-cols-6">
         {ITEMS.map(({ to, icon: Icon, key }) => (

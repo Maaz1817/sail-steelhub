@@ -1,13 +1,13 @@
 {
-  "name": "SAIL Salem Steel Plant Knowledge Hub",
-  "short_name": "SSP Hub",
-  "description": "Employee knowledge, learning, events and circulars for SAIL Salem Steel Plant.",
+  "name": "Arivu — SAIL Salem Steel Plant",
+  "short_name": "Arivu",
+  "description": "Arivu is the employee knowledge, learning, activities and circulars app for SAIL Salem Steel Plant.",
   "start_url": "/home",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#ffffff",
-  "theme_color": "#1d3557",
+  "background_color": "#edf1f7",
+  "theme_color": "#193c68",
   "lang": "en",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

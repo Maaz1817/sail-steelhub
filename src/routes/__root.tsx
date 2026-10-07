@@ -35,7 +35,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
@@ -78,14 +78,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SAIL Employee Knowledge Management System" },
+      { title: "Arivu — SAIL Salem Steel Plant" },
       {
         name: "description",
         content:
           "Employee knowledge, learning and communication hub for SAIL Salem Steel Plant.",
       },
       { name: "author", content: "SAIL Salem Steel Plant" },
-      { property: "og:title", content: "SAIL Employee Knowledge Management System" },
+      { property: "og:title", content: "Arivu — SAIL Salem Steel Plant" },
       {
         property: "og:description",
         content:

@@ -1,11 +1,12 @@
+import { useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, LogOut, ShieldCheck } from "lucide-react";
+import { Loader2, LogOut, Pencil, Save, ShieldCheck, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useI18n } from "@/lib/i18n";
-import { getMyProfile } from "@/lib/employee-auth.functions";
+import { getMyProfile, updateMyContactDetails } from "@/lib/employee-auth.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/profile")({
@@ -42,10 +43,27 @@ function ProfilePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fetchProfile = useServerFn(getMyProfile);
+  const updateContactDetails = useServerFn(updateMyContactDetails);
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [designation, setDesignation] = useState("");
+  const [phone, setPhone] = useState("");
+  const [workEmail, setWorkEmail] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
 
   const { data, isPending } = useQuery({
     queryKey: ["my-profile"],
     queryFn: () => fetchProfile(),
+  });
+
+  const updateContact = useMutation({
+    mutationFn: () => updateContactDetails({ data: { designation, phone, workEmail } }),
+    onSuccess: () => {
+      setIsEditingContact(false);
+      setMessage("Your contact details were updated.");
+      queryClient.invalidateQueries({ queryKey: ["my-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+    },
+    onError: (error: Error) => setMessage(error.message),
   });
 
   async function handleSignOut() {
@@ -56,6 +74,14 @@ function ProfilePage() {
   }
 
   const p = data?.profile;
+
+  function startEditingContact() {
+    setDesignation(p?.designation ?? "");
+    setPhone(p?.phone ?? "");
+    setWorkEmail(p?.work_email ?? "");
+    setMessage(null);
+    setIsEditingContact(true);
+  }
 
   return (
     <AppShell title={t("nav.profile")}>
@@ -77,9 +103,91 @@ function ProfilePage() {
             <Row label={t("home.designation")} value={p?.designation} />
             <Row label={t("home.department")} value={p?.department} />
             <Row label={t("profile.joined")} value={p?.date_of_joining} />
-            <Row label={t("profile.email")} value={p?.work_email} />
-            <Row label={t("profile.phone")} value={p?.phone} />
           </dl>
+
+          <div className="mt-6 border-t-2 border-border pt-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold">{t("profile.contactDetails")}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{t("profile.contactNote")}</p>
+              </div>
+              {!isEditingContact ? (
+                <button
+                  type="button"
+                  onClick={startEditingContact}
+                  className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border-2 border-primary px-3 text-sm font-bold text-primary"
+                >
+                  <Pencil aria-hidden className="size-4" />
+                  {t("profile.edit")}
+                </button>
+              ) : null}
+            </div>
+
+            {isEditingContact ? (
+              <form
+                className="mt-4 space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  updateContact.mutate();
+                }}
+              >
+                <label className="block text-sm font-bold">
+                  {t("home.designation")}
+                  <input
+                    type="text"
+                    value={designation}
+                    onChange={(event) => setDesignation(event.target.value)}
+                    maxLength={120}
+                    className="mt-2 min-h-12 w-full rounded-xl border-2 border-border bg-background px-3 text-base"
+                  />
+                </label>
+                <label className="block text-sm font-bold">
+                  {t("profile.phone")}
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    maxLength={32}
+                    className="mt-2 min-h-12 w-full rounded-xl border-2 border-border bg-background px-3 text-base"
+                  />
+                </label>
+                <label className="block text-sm font-bold">
+                  {t("profile.email")}
+                  <input
+                    type="email"
+                    value={workEmail}
+                    onChange={(event) => setWorkEmail(event.target.value)}
+                    maxLength={254}
+                    className="mt-2 min-h-12 w-full rounded-xl border-2 border-border bg-background px-3 text-base"
+                  />
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    type="submit"
+                    disabled={updateContact.isPending}
+                    className="btn-primary flex flex-1 items-center justify-center gap-2"
+                  >
+                    {updateContact.isPending ? <Loader2 aria-hidden className="size-5 animate-spin" /> : <Save aria-hidden className="size-5" />}
+                    {t("profile.save")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingContact(false)}
+                    className="btn-secondary flex items-center justify-center gap-2"
+                  >
+                    <X aria-hidden className="size-5" />
+                    {t("profile.cancel")}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <dl className="mt-4 space-y-4">
+                <Row label={t("profile.email")} value={p?.work_email} />
+                <Row label={t("profile.phone")} value={p?.phone} />
+              </dl>
+            )}
+            {message ? <p className="mt-4 text-sm font-semibold text-primary">{message}</p> : null}
+          </div>
         </section>
       )}
 

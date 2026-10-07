@@ -95,7 +95,7 @@ function CircularList({ onOpen }: { onOpen: (id: string) => void }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("circulars.search")}
           aria-label={t("circulars.search")}
-          className="h-14 w-full rounded-xl border-2 border-border bg-card pl-12 pr-4 text-base outline-none focus:border-primary"
+          className="circular-search h-14 w-full rounded-xl border-2 border-border bg-card pl-12 pr-4 text-base outline-none focus:border-primary"
         />
       </div>
 
@@ -135,7 +135,7 @@ function CircularList({ onOpen }: { onOpen: (id: string) => void }) {
             <button
               type="button"
               onClick={() => onOpen(c.id)}
-              className="w-full rounded-xl border-2 border-border bg-card p-4 text-left transition-colors hover:border-primary"
+              className="circular-card w-full rounded-xl border-2 border-border bg-card p-4 text-left transition-colors hover:border-primary"
             >
               <div className="flex items-center gap-2 text-sm font-semibold text-primary">
                 <FileText className="h-4 w-4" />
@@ -175,8 +175,35 @@ function CircularDetail({
     queryKey: ["circular", circularId],
     queryFn: () => fetchCircular({ data: { circularId } }),
   });
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const circular = data?.circular;
+
+  async function downloadAttachment() {
+    if (!circular?.file_url) return;
+    setIsDownloading(true);
+    setDownloadError(null);
+    try {
+      const response = await fetch(circular.file_url);
+      if (!response.ok) throw new Error("Unable to download the attachment");
+
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      const savedName = new URL(circular.file_url).pathname.split("/").pop() ?? "attachment";
+      link.href = objectUrl;
+      link.download = savedName.replace(/^[0-9a-f-]{36}-/, "") || "SAIL-circular-attachment";
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+    } catch {
+      setDownloadError("Could not download the attachment. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
+  }
 
   return (
     <AppShell title={t("nav.circulars")}>
@@ -228,16 +255,21 @@ function CircularDetail({
           )}
 
           {circular.file_url && (
-            <a
-              href={circular.file_url}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-primary flex w-full items-center justify-center"
+            <button
+              type="button"
+              onClick={downloadAttachment}
+              disabled={isDownloading}
+              className="btn-primary flex w-full items-center justify-center disabled:opacity-60"
             >
-              <Paperclip className="mr-2 h-5 w-5" />
-              {t("circulars.download")}
-            </a>
+              {isDownloading ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <Paperclip className="mr-2 h-5 w-5" />
+              )}
+              {isDownloading ? "Downloading…" : t("circulars.download")}
+            </button>
           )}
+          {downloadError && <p className="text-sm font-semibold text-destructive">{downloadError}</p>}
         </article>
       )}
     </AppShell>
