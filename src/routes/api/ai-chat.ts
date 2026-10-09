@@ -2,28 +2,24 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
+type AiProvider = "builtin" | "ollama" | "openai";
 
-type OpenAiErrorPayload = {
-  error?: { code?: string | null; type?: string | null; message?: string | null };
-};
-
-const SYSTEM_PROMPT = `You are Steelix AI, the official AI assistant for SAIL — Salem Steel Plant (Steel Authority of India Limited), used by plant employees.
-Answer questions about steel-making processes, stainless steel cold rolling, plant safety (PPE, fire safety, emergency response), HR policies, employee benefits, training and general workplace guidance.
-Rules:
-- Be professional, concise and practical. Prefer short paragraphs and numbered steps.
-- Use simple language suitable for employees of all ages; avoid jargon unless you explain it.
-- Reply in the same language the employee used (English, Tamil or Hindi).
-- Safety answers must always reference correct PPE and standard emergency procedure.
-- If a question needs official confirmation (pay, leave records, personal data), say so and advise contacting the HR / IT department. Never invent plant-specific numbers, names or circular references.`;
+const SYSTEM_PROMPT = `You are Steelix AI, the official AI assistant for SAIL — Salem Steel Plant.
+Give professional, practical and concise guidance about plant safety, PPE, emergency response, stainless-steel processes, training, HR and this Arivu employee app.
+Use simple language. Never invent official HR records, policy values or circular references.`;
 
 async function verifyEmployee(request: Request): Promise<boolean> {
   const authHeader = request.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) return false;
+
   const token = authHeader.slice(7);
   if (token.split(".").length !== 3) return false;
 
-  const url = process.env["SUPABASE_URL"];
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
+  const url = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+  const key =
+    process.env["SUPABASE_PUBLISHABLE_KEY"] ||
+    process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+
   if (!url || !key) return false;
 
   const supabase = createClient(url, key, {
@@ -44,19 +40,104 @@ async function verifyEmployee(request: Request): Promise<boolean> {
   return Boolean(!error && data?.claims?.sub);
 }
 
-function getOpenAiError(detail: string): OpenAiErrorPayload["error"] {
-  try {
-    return (JSON.parse(detail) as OpenAiErrorPayload).error;
-  } catch {
-    return undefined;
+function getAiProvider(): AiProvider {
+  const configured = process.env["AI_PROVIDER"]?.trim().toLowerCase();
+
+  if (configured === "openai" || configured === "ollama" || configured === "builtin") {
+    return configured;
   }
+
+  // Vercel cannot reach Ollama running on a user's own computer.
+  return process.env["VERCEL"] ? "builtin" : "ollama";
 }
 
-function getAiProvider(): "ollama" | "openai" {
-  return process.env["AI_PROVIDER"]?.trim().toLowerCase() === "openai" ? "openai" : "ollama";
+function languageOf(text: string): "ta" | "hi" | "en" {
+  if (/[\u0B80-\u0BFF]/.test(text)) return "ta";
+  if (/[\u0900-\u097F]/.test(text)) return "hi";
+  return "en";
 }
 
-/** Convert Ollama's newline-delimited stream into the SSE shape used by the app. */
+function builtInReply(question: string): string {
+  const query = question.toLowerCase();
+  const language = languageOf(question);
+
+  const englishIntro = "Steelix AI";
+  const tamilIntro = "Steelix AI உதவி";
+  const hindiIntro = "Steelix AI सहायता";
+
+  if (/(hello|hi|vanakkam|namaste|help)/.test(query)) {
+    if (language === "ta") {
+      return `${tamilIntro}: வணக்கம்! பாதுகாப்பு, பயிற்சி, எஃகு செயல்முறை, HR, circulars, forms அல்லது Arivu app பற்றிக் கேளுங்கள்.`;
+    }
+    if (language === "hi") {
+      return `${hindiIntro}: नमस्ते! सुरक्षा, प्रशिक्षण, स्टील प्रक्रिया, HR, circulars, forms या Arivu app के बारे में पूछिए।`;
+    }
+    return `${englishIntro}: Hello! Ask me about safety, training, steel processes, HR guidance, circulars, forms or using the Arivu app.`;
+  }
+
+  if (/(safety|ppe|helmet|fire|emergency|accident|hazard|unsafe)/.test(query)) {
+    if (language === "ta") {
+      return `முதலில் பாதுகாப்பு: வேலைக்கு தேவையான PPE அணியுங்கள் — helmet, safety shoes, gloves, eye/face protection மற்றும் area-specific PPE. அபாயம் அல்லது விபத்து இருந்தால் வேலை நிறுத்தி, supervisor மற்றும் safety control room-ஐ உடனே தகவல் அளித்து, plant emergency procedure-ஐ பின்பற்றுங்கள்.`;
+    }
+    if (language === "hi") {
+      return `सुरक्षा पहले: आवश्यक PPE पहनें — helmet, safety shoes, gloves, eye/face protection और area-specific PPE। खतरा या दुर्घटना होने पर काम रोकें, supervisor और safety control room को तुरंत बताएं तथा plant emergency procedure का पालन करें।`;
+    }
+    return `Safety first: wear the required PPE—helmet, safety shoes, gloves, eye/face protection and area-specific PPE. If there is a hazard or accident, stop work, inform your supervisor and safety control room immediately, and follow the plant emergency procedure.`;
+  }
+
+  if (/(quiz|question|exam|training|learn)/.test(query)) {
+    return `${englishIntro}: I can help you understand a quiz topic. Read the question carefully, identify the safety or process concept being tested, and choose the answer supported by your training material. Send the quiz question and I will explain the concept step by step.`;
+  }
+
+  if (/(steel|stainless|cold roll|rolling|anneal|pickl|coil|quality)/.test(query)) {
+    return `${englishIntro}: For steel-process questions, start with the process purpose, key operating controls, quality checks and safety precautions. For example, cold rolling reduces thickness and improves surface finish; follow the approved SOP, machine guarding requirements and inspection standards for your area. Tell me the exact process or issue for focused guidance.`;
+  }
+
+  if (/(leave|salary|pay|hr|designation|profile|employee id|password)/.test(query)) {
+    return `${englishIntro}: For personal HR information, salary, leave balance, designation changes or account access, use your Profile section where available. For an official correction, contact the HR or IT department because only they can confirm or change employee records.`;
+  }
+
+  if (/(circular|form|announcement|activity|photo|download|notification|birthday|anniversary)/.test(query)) {
+    return `${englishIntro}: Open the relevant Arivu section: Circulars for notices, Forms for downloads, Activities for photos and learning updates, and Notifications for announcements, birthdays and anniversaries. If an upload or download does not work, refresh once and report the file name to the administrator.`;
+  }
+
+  if (language === "ta") {
+    return `${tamilIntro}: உங்கள் கேள்வியை இன்னும் குறிப்பாக எழுதுங்கள். பாதுகாப்பு, training, steel process, HR அல்லது Arivu app உதவிக்கு நான் வழிகாட்ட முடியும். Official personal records-க்கு HR அல்லது IT department-ஐ தொடர்பு கொள்ளுங்கள்.`;
+  }
+
+  if (language === "hi") {
+    return `${hindiIntro}: कृपया अपना प्रश्न थोड़ा और स्पष्ट लिखें। मैं सुरक्षा, training, steel process, HR या Arivu app में मार्गदर्शन कर सकता हूँ। Official personal records के लिए HR या IT department से संपर्क करें।`;
+  }
+
+  return `${englishIntro}: Please share a little more detail. I can guide you on safety, training, steel processes, HR basics or using the Arivu app. For official personal records, contact HR or IT.`;
+}
+
+function sseResponse(text: string) {
+  const encoder = new TextEncoder();
+  const parts = text.match(/\S+\s*/g) ?? [text];
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const part of parts) {
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: part } }] })}\n\n`),
+        );
+      }
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-store",
+      connection: "keep-alive",
+    },
+  });
+}
+
 function ollamaToSse(stream: ReadableStream<Uint8Array>) {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
@@ -64,17 +145,20 @@ function ollamaToSse(stream: ReadableStream<Uint8Array>) {
 
   function emitLine(line: string, controller: TransformStreamDefaultController<Uint8Array>) {
     if (!line.trim()) return;
+
     try {
       const item = JSON.parse(line) as { message?: { content?: string }; done?: boolean };
       const content = item.message?.content;
+
       if (content) {
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`),
         );
       }
+
       if (item.done) controller.enqueue(encoder.encode("data: [DONE]\n\n"));
     } catch {
-      // A malformed provider chunk is ignored rather than ending the employee's session.
+      // Ignore malformed provider chunks.
     }
   }
 
@@ -110,23 +194,29 @@ export const Route = createFileRoute("/api/ai-chat")({
         }
 
         const history = (body.messages ?? [])
-          .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+          .filter((message) => (message.role === "user" || message.role === "assistant") && typeof message.content === "string")
           .slice(-16)
-          .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
+          .map((message) => ({ role: message.role, content: message.content.slice(0, 4000) }));
 
-        if (history.length === 0) {
+        const latestQuestion = [...history].reverse().find((message) => message.role === "user")?.content;
+
+        if (!latestQuestion) {
           return new Response("No message provided", { status: 400 });
         }
 
         const provider = getAiProvider();
-        let upstream: Response;
+
+        if (provider === "builtin") {
+          return sseResponse(builtInReply(latestQuestion));
+        }
+
         try {
+          let upstream: Response;
+
           if (provider === "ollama") {
-            const baseUrl = (process.env["OLLAMA_BASE_URL"]?.trim() || "http://127.0.0.1:11434").replace(
-              /\/$/,
-              "",
-            );
+            const baseUrl = (process.env["OLLAMA_BASE_URL"]?.trim() || "http://127.0.0.1:11434").replace(/\/$/, "");
             const model = process.env["OLLAMA_MODEL"]?.trim() || "llama3.2:3b";
+
             upstream = await fetch(`${baseUrl}/api/chat`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -139,10 +229,10 @@ export const Route = createFileRoute("/api/ai-chat")({
             });
           } else {
             const apiKey = process.env["OPENAI_API_KEY"];
-            if (!apiKey) {
-              return new Response("AI is not configured. Contact the IT department.", { status: 500 });
-            }
+            if (!apiKey) return sseResponse(builtInReply(latestQuestion));
+
             const model = process.env["OPENAI_MODEL"]?.trim() || "gpt-5-mini";
+
             upstream = await fetch("https://api.openai.com/v1/chat/completions", {
               method: "POST",
               headers: {
@@ -157,50 +247,23 @@ export const Route = createFileRoute("/api/ai-chat")({
               signal: request.signal,
             });
           }
-        } catch {
-          return new Response(
-            provider === "ollama"
-              ? "Free local AI is not running. Start Ollama on this computer, then try again."
-              : "Steelix AI is unavailable. Please try again in a moment.",
-            { status: 503 },
-          );
-        }
 
-        if (!upstream.ok || !upstream.body) {
-          const detail = await upstream.text().catch(() => "");
-          if (provider === "ollama") {
-            const message = detail.toLowerCase().includes("model")
-              ? "The free local AI model is not installed. Run: ollama pull llama3.2:3b"
-              : "Free local AI is unavailable. Start Ollama on this computer, then try again.";
-            return new Response(message, { status: 503 });
+          if (!upstream.ok || !upstream.body) {
+            return sseResponse(builtInReply(latestQuestion));
           }
-          const apiError = getOpenAiError(detail);
-          const errorCode = apiError?.code ?? apiError?.type;
-          const message =
-            upstream.status === 401
-              ? "AI configuration is invalid. Contact the IT department."
-              : errorCode === "credit_balance_exhausted" || errorCode === "insufficient_quota"
-                ? "AI service has no available API credit. Contact the IT department."
-                : errorCode === "organization_usage_limit_exceeded" ||
-                    errorCode === "organization_spend_limit_exceeded" ||
-                    errorCode === "project_spend_limit_exceeded"
-                  ? "AI service has reached its usage or spending limit. Contact the IT department."
-                  : upstream.status === 429
-              ? "Steelix AI is busy right now. Please try again in a moment."
-              : upstream.status === 402
-                ? "AI usage limit reached. Please contact the IT department."
-                : `Steelix AI is unavailable (${upstream.status}). ${detail.slice(0, 200)}`;
-          return new Response(message, { status: upstream.status });
-        }
 
-        return new Response(provider === "ollama" ? ollamaToSse(upstream.body) : upstream.body, {
-          status: 200,
-          headers: {
-            "content-type": "text/event-stream; charset=utf-8",
-            "cache-control": "no-store",
-            connection: "keep-alive",
-          },
-        });
+          return new Response(provider === "ollama" ? ollamaToSse(upstream.body) : upstream.body, {
+            status: 200,
+            headers: {
+              "content-type": "text/event-stream; charset=utf-8",
+              "cache-control": "no-store",
+              connection: "keep-alive",
+            },
+          });
+        } catch {
+          // A deployed site cannot reach a local Ollama server. Keep Steelix available.
+          return sseResponse(builtInReply(latestQuestion));
+        }
       },
     },
   },
